@@ -2,4 +2,5 @@
 
 ## Change Logs
 
+- [10/02/2026] Menambahkan file requirements.txt
 - [10/02/2026] Init Project

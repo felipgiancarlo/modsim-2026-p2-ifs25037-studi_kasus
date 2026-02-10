@@ -19,7 +19,8 @@ st.caption("Analisis dan visualisasi hasil kuesioner responden")
 # =============================
 # LOAD DATA
 # =============================
-df = pd.read_excel("data_kuesioner.xlsx")
+df = pd.read_csv("data_kuesioner.csv")
+
 
 # Ambil kolom pertanyaan (selain ID/responden)
 jawaban = df.iloc[:, 1:].astype(str)

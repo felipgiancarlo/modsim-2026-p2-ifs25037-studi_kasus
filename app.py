@@ -18,7 +18,7 @@ st.caption("Analisis dan visualisasi hasil kuesioner responden")
 # =============================
 # LOAD DATA
 # =============================
-df = pd.read_("data_kuesioner.xlsx")
+df = pd.read_excel("data_kuesioner.xlsx")
 
 
 # Ambil kolom pertanyaan (selain ID/responden)

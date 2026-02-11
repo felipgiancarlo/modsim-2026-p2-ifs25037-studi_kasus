@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-
 # =============================
 # PAGE CONFIG
 # =============================
@@ -16,33 +15,53 @@ st.title("📊 Dashboard Visualisasi Kuesioner")
 st.caption("Analisis dan visualisasi hasil kuesioner responden")
 
 # =============================
-# LOAD DATA
+# LOAD DATA (AMAN ENCODING)
 # =============================
-df = pd.read_csv("data_kuesioner.csv", encoding="latin1")
+try:
+    df = pd.read_csv("data_kuesioner.csv", encoding="utf-8")
+except UnicodeDecodeError:
+    df = pd.read_csv("data_kuesioner.csv", encoding="latin1")
 
+# =============================
+# VALIDASI DATA
+# =============================
+if df.shape[1] < 2:
+    st.error("❌ File CSV harus memiliki minimal 2 kolom (ID + pertanyaan)")
+    st.stop()
 
-
-# Ambil kolom pertanyaan (selain ID/responden)
+# =============================
+# AMBIL JAWABAN
+# =============================
 jawaban = df.iloc[:, 1:].astype(str)
-jawaban = jawaban.replace(["nan", "None", ""], pd.NA)
+jawaban = jawaban.replace(["nan", "None", "", " "], pd.NA)
 
 # =============================
 # MAPPING
 # =============================
-skor_map = {"STS": 1, "TS": 2, "CS": 3, "S": 4, "SS": 5}
+skor_map = {
+    "STS": 1,
+    "TS": 2,
+    "CS": 3,
+    "S": 4,
+    "SS": 5
+}
+
 kategori_map = {
-    "STS": "Negatif", "TS": "Negatif",
+    "STS": "Negatif",
+    "TS": "Negatif",
     "CS": "Netral",
-    "S": "Positif", "SS": "Positif"
+    "S": "Positif",
+    "SS": "Positif"
 }
 
 # =============================
-# FLATTEN DATA (STABIL)
+# FLATTEN DATA (AMAN)
 # =============================
 rows = []
 
 for col in jawaban.columns:
-    for val in jawaban[col]:
+    for val in jawaban[col].dropna():
+        val = val.strip().upper()
         if val in skor_map:
             rows.append({
                 "Pertanyaan": col,
@@ -53,36 +72,34 @@ for col in jawaban.columns:
 
 data = pd.DataFrame(rows)
 
+if data.empty:
+    st.error("❌ Tidak ada data jawaban valid (STS–SS) di file CSV")
+    st.stop()
+
 # =============================
 # DATA OLAHAN
 # =============================
-
-# Chart 1 & 2
 dist_all = (
-    data.groupby("Jawaban")
+    data.groupby("Jawaban", as_index=False)
     .size()
-    .reset_index(name="Jumlah")
+    .rename(columns={"size": "Jumlah"})
 )
 
-# Chart 3
 dist_kategori = (
-    data.groupby("Kategori")
+    data.groupby("Kategori", as_index=False)
     .size()
-    .reset_index(name="Jumlah")
+    .rename(columns={"size": "Jumlah"})
 )
 
-# Chart 4 & 6
 rata_rata = (
-    data.groupby("Pertanyaan")["Skor"]
+    data.groupby("Pertanyaan", as_index=False)["Skor"]
     .mean()
-    .reset_index()
 )
 
-# Chart 5
 dist_per_q = (
-    data.groupby(["Pertanyaan", "Jawaban"])
+    data.groupby(["Pertanyaan", "Jawaban"], as_index=False)
     .size()
-    .reset_index(name="Jumlah")
+    .rename(columns={"size": "Jumlah"})
 )
 
 # =============================

@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 # =============================
-# CONFIG
+# PAGE CONFIG
 # =============================
 st.set_page_config(
     page_title="Dashboard Visualisasi Kuesioner",
@@ -12,33 +12,29 @@ st.set_page_config(
 )
 
 # =============================
-# CUSTOM CSS
+# UI STYLE (AMAN – NO LOGIC)
 # =============================
 st.markdown("""
 <style>
-body {
-    background-color: #f6f8fb;
+.block-container {
+    padding-top: 2rem;
 }
- celebrated {
-    font-size: 18px;
+.header-box {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    padding: 28px;
+    border-radius: 20px;
+    color: white;
+    margin-bottom: 30px;
+}
+.header-box h1 {
+    margin-bottom: 5px;
 }
 .card {
-    background-color: white;
+    background: white;
     padding: 20px;
     border-radius: 16px;
     box-shadow: 0 4px 14px rgba(0,0,0,0.08);
     text-align: center;
-}
-.metric-title {
-    font-size: 16px;
-    color: #6b7280;
-}
-.metric-value {
-    font-size: 32px;
-    font-weight: bold;
-}
-.section {
-    margin-top: 40px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -46,130 +42,176 @@ body {
 # =============================
 # HEADER
 # =============================
-st.markdown("## 📊 Dashboard Visualisasi Kuesioner")
-st.markdown("Analisis dan visualisasi hasil kuesioner responden secara interaktif")
-
-st.markdown("---")
+st.markdown("""
+<div class="header-box">
+    <h1>📊 Dashboard Visualisasi Kuesioner</h1>
+    <p>Analisis dan visualisasi hasil kuesioner responden</p>
+</div>
+""", unsafe_allow_html=True)
 
 # =============================
-# LOAD DATA
+# LOAD DATA (AMAN)
 # =============================
 try:
-    df = pd.read_csv(
-        "data_kuesioner.csv",
-        sep=None,
-        engine="python",
-        encoding="latin1",
-        on_bad_lines="skip"
-    )
+    df = pd.read_csv("data_kuesioner.csv", encoding="latin1")
 except Exception as e:
-    st.error(f"❌ Gagal membaca file: {e}")
+    st.error(f"Gagal membaca CSV: {e}")
     st.stop()
 
 if df.shape[1] < 2:
-    st.error("❌ Minimal harus ada 2 kolom (ID + pertanyaan)")
+    st.error("Data tidak valid. Minimal harus ada 2 kolom (ID + pertanyaan).")
     st.stop()
 
 # =============================
 # PREPROCESS
 # =============================
-pertanyaan = df.columns[1:]
+jawaban = df.iloc[:, 1:].astype(str)
+jawaban = jawaban.replace(["nan", "None", ""], pd.NA)
 
-mapping = {
-    "STS": 1,
-    "TS": 2,
-    "CS": 3,
-    "S": 4,
-    "SS": 5
+skor_map = {"STS": 1, "TS": 2, "CS": 3, "S": 4, "SS": 5}
+kategori_map = {
+    "STS": "Negatif", "TS": "Negatif",
+    "CS": "Netral",
+    "S": "Positif", "SS": "Positif"
 }
 
-df_numeric = df[pertanyaan].replace(mapping)
+rows = []
+for col in jawaban.columns:
+    for val in jawaban[col]:
+        if val in skor_map:
+            rows.append({
+                "Pertanyaan": col,
+                "Jawaban": val,
+                "Skor": skor_map[val],
+                "Kategori": kategori_map[val]
+            })
+
+data = pd.DataFrame(rows)
+
+if data.empty:
+    st.error("Tidak ada data jawaban valid (STS/TS/CS/S/SS).")
+    st.stop()
 
 # =============================
-# METRICS
+# SUMMARY CARD
 # =============================
-st.markdown("### 📌 Ringkasan Data")
+c1, c2, c3 = st.columns(3)
 
-col1, col2, col3 = st.columns(3)
-
-with col1:
+with c1:
     st.markdown(f"""
     <div class="card">
-        <div class="metric-title">Total Responden</div>
-        <div class="metric-value">{df.shape[0]}</div>
+        <h4>Total Responden</h4>
+        <h2>{df.shape[0]}</h2>
     </div>
     """, unsafe_allow_html=True)
 
-with col2:
+with c2:
     st.markdown(f"""
     <div class="card">
-        <div class="metric-title">Jumlah Pertanyaan</div>
-        <div class="metric-value">{len(pertanyaan)}</div>
+        <h4>Jumlah Pertanyaan</h4>
+        <h2>{jawaban.shape[1]}</h2>
     </div>
     """, unsafe_allow_html=True)
 
-with col3:
+with c3:
     st.markdown(f"""
     <div class="card">
-        <div class="metric-title">Skala Penilaian</div>
-        <div class="metric-value">1 – 5</div>
+        <h4>Total Jawaban Valid</h4>
+        <h2>{len(data)}</h2>
     </div>
     """, unsafe_allow_html=True)
 
-# =============================
-# AVERAGE SCORE
-# =============================
-st.markdown("### 📈 Rata-rata Skor Tiap Pertanyaan")
-
-avg = df_numeric.mean().reset_index()
-avg.columns = ["Pertanyaan", "Rata-rata"]
-
-fig_avg = px.bar(
-    avg,
-    x="Pertanyaan",
-    y="Rata-rata",
-    color="Rata-rata",
-    text_auto=".2f",
-    color_continuous_scale="Blues"
-)
-
-fig_avg.update_layout(
-    height=400,
-    yaxis=dict(range=[1, 5]),
-    plot_bgcolor="rgba(0,0,0,0)"
-)
-
-st.plotly_chart(fig_avg, use_container_width=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
 # =============================
-# DETAIL PER PERTANYAAN
+# DATA OLAHAN
 # =============================
-st.markdown("### 📋 Detail Jawaban per Pertanyaan")
+dist_all = data.groupby("Jawaban").size().reset_index(name="Jumlah")
+dist_kategori = data.groupby("Kategori").size().reset_index(name="Jumlah")
+rata_rata = data.groupby("Pertanyaan")["Skor"].mean().reset_index()
+dist_per_q = data.groupby(["Pertanyaan", "Jawaban"]).size().reset_index(name="Jumlah")
 
-selected_q = st.selectbox("Pilih Pertanyaan", pertanyaan)
+# =============================
+# VISUALISASI
+# =============================
 
-dist = df[selected_q].value_counts().reset_index()
-dist.columns = ["Jawaban", "Jumlah"]
+# ROW 1
+c1, c2 = st.columns(2)
 
-fig_pie = px.pie(
-    dist,
-    names="Jawaban",
-    values="Jumlah",
-    hole=0.45
-)
+with c1:
+    fig1 = px.bar(
+        dist_all,
+        x="Jawaban",
+        y="Jumlah",
+        text_auto=True,
+        title="Distribusi Jawaban Keseluruhan"
+    )
+    st.plotly_chart(fig1, use_container_width=True)
 
-fig_pie.update_layout(height=350)
+with c2:
+    fig2 = px.pie(
+        dist_all,
+        names="Jawaban",
+        values="Jumlah",
+        hole=0.45,
+        title="Proporsi Jawaban"
+    )
+    st.plotly_chart(fig2, use_container_width=True)
 
-col1, col2 = st.columns([1, 2])
+# ROW 2
+c3, c4 = st.columns(2)
 
-with col1:
-    st.plotly_chart(fig_pie, use_container_width=True)
+with c3:
+    fig3 = px.bar(
+        dist_kategori,
+        x="Kategori",
+        y="Jumlah",
+        text_auto=True,
+        title="Distribusi Positif / Netral / Negatif"
+    )
+    st.plotly_chart(fig3, use_container_width=True)
 
-with col2:
-    st.dataframe(dist, use_container_width=True)
+with c4:
+    fig4 = px.bar(
+        rata_rata,
+        x="Pertanyaan",
+        y="Skor",
+        range_y=[0, 5],
+        text_auto=".2f",
+        title="Rata-rata Skor per Pertanyaan"
+    )
+    fig4.update_xaxes(tickangle=-30)
+    st.plotly_chart(fig4, use_container_width=True)
+
+# ROW 3
+c5, c6 = st.columns(2)
+
+with c5:
+    fig5 = px.bar(
+        dist_per_q,
+        x="Pertanyaan",
+        y="Jumlah",
+        color="Jawaban",
+        barmode="stack",
+        title="Distribusi Jawaban per Pertanyaan"
+    )
+    fig5.update_xaxes(tickangle=-30)
+    st.plotly_chart(fig5, use_container_width=True)
+
+with c6:
+    fig6 = px.line(
+        rata_rata,
+        x="Pertanyaan",
+        y="Skor",
+        markers=True,
+        title="Tren Skor Rata-rata"
+    )
+    fig6.update_layout(yaxis_range=[0, 5])
+    fig6.update_xaxes(tickangle=-30)
+    st.plotly_chart(fig6, use_container_width=True)
 
 # =============================
 # FOOTER
 # =============================
 st.markdown("---")
-st.caption("© 2026 | Dashboard Visualisasi Kuesioner • Streamlit")
+st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • Stable UI Version")

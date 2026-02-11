@@ -6,13 +6,13 @@ import plotly.express as px
 # PAGE CONFIG
 # =============================
 st.set_page_config(
-    page_title="Dashboard Kuesioner",
+    page_title="Dashboard Analisis Kuesioner",
     page_icon="📊",
     layout="wide"
 )
 
 # =============================
-# UI STYLE (CSS ONLY)
+# UI STYLE (CSS ONLY – SAFE)
 # =============================
 st.markdown("""
 <style>
@@ -20,50 +20,68 @@ st.markdown("""
     padding-top: 2rem;
 }
 
-.header-box {
-    background: linear-gradient(135deg, #2563eb, #4f46e5);
-    padding: 32px;
-    border-radius: 20px;
+.hero {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    padding: 48px;
+    border-radius: 28px;
     color: white;
-    margin-bottom: 32px;
+    margin-bottom: 48px;
 }
 
-.header-box h1 {
-    margin-bottom: 8px;
+.hero h1 {
+    font-size: 40px;
+    margin-bottom: 12px;
 }
 
-.header-box p {
-    opacity: 0.9;
-    font-size: 16px;
+.hero p {
+    font-size: 18px;
+    opacity: 0.95;
+    max-width: 900px;
 }
 
 .card {
-    background: white;
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    background: #ffffff;
+    padding: 22px;
+    border-radius: 18px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.08);
     text-align: center;
 }
 
-.section-title {
-    margin-top: 40px;
-    margin-bottom: 20px;
+.card small {
+    color: #64748b;
+}
+
+.section {
+    margin-top: 56px;
+    margin-bottom: 24px;
+}
+
+.note {
+    background: #f1f5f9;
+    padding: 16px;
+    border-radius: 14px;
+    color: #334155;
+    font-size: 14px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =============================
-# HEADER
+# HERO HEADER
 # =============================
 st.markdown("""
-<div class="header-box">
-    <h1>📊 Dashboard Visualisasi Kuesioner</h1>
-    <p>Analisis dan visualisasi hasil kuesioner responden</p>
+<div class="hero">
+    <h1>📊 Dashboard Analisis Kuesioner</h1>
+    <p>
+        Dashboard ini menyajikan hasil analisis kuesioner responden menggunakan
+        skala Likert. Seluruh data diolah langsung dari file sumber tanpa manipulasi,
+        dengan tujuan memberikan gambaran objektif terhadap persepsi responden.
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
 # =============================
-# LOAD CSV (ASLI)
+# LOAD CSV (ASLI – AMAN)
 # =============================
 try:
     df = pd.read_csv(
@@ -73,11 +91,11 @@ try:
         engine="python"
     )
 except Exception as e:
-    st.error(f"❌ Gagal membaca CSV: {e}")
+    st.error(f"Gagal membaca CSV: {e}")
     st.stop()
 
 if df.shape[1] < 2:
-    st.error("❌ Data tidak valid. Minimal harus ada 2 kolom (ID + pertanyaan).")
+    st.error("Data tidak valid. Minimal harus ada kolom ID dan pertanyaan.")
     st.stop()
 
 jawaban = df.iloc[:, 1:].astype(str)
@@ -101,13 +119,12 @@ normalisasi = {
 def normalize(val):
     if pd.isna(val):
         return None
-    val = str(val).strip().lower()
-    return normalisasi.get(val, None)
+    return normalisasi.get(str(val).strip().lower(), None)
 
 jawaban = jawaban.applymap(normalize)
 
 if jawaban.notna().sum().sum() == 0:
-    st.error("❌ Tidak ada data jawaban valid (STS / TS / CS / S / SS).")
+    st.error("Tidak ada data jawaban valid.")
     st.stop()
 
 # =============================
@@ -147,7 +164,7 @@ for col in jawaban.columns:
 data = pd.DataFrame(rows)
 
 if data.empty:
-    st.error("❌ Data kosong setelah diproses.")
+    st.error("Data kosong setelah diproses.")
     st.stop()
 
 # =============================
@@ -159,119 +176,101 @@ rata_rata = data.groupby("Pertanyaan")["Skor"].mean().reset_index()
 dist_per_q = data.groupby(["Pertanyaan", "Jawaban"]).size().reset_index(name="Jumlah")
 
 # =============================
-# CARD STATISTIK
+# KPI CARDS
 # =============================
-st.markdown("### 📌 Ringkasan Data")
+st.markdown("<div class='section'><h2>📌 Ringkasan Utama</h2></div>", unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 
 with c1:
     st.markdown(f"""
     <div class="card">
-        <h4>Total Responden</h4>
         <h2>{df.shape[0]}</h2>
+        <small>Total Responden</small>
     </div>
     """, unsafe_allow_html=True)
 
 with c2:
     st.markdown(f"""
     <div class="card">
-        <h4>Jumlah Pertanyaan</h4>
         <h2>{jawaban.shape[1]}</h2>
+        <small>Jumlah Pertanyaan</small>
     </div>
     """, unsafe_allow_html=True)
 
 with c3:
     st.markdown(f"""
     <div class="card">
-        <h4>Rata-rata Skor Global</h4>
-        <h2>{data["Skor"].mean():.2f}</h2>
+        <h2>{data['Skor'].mean():.2f}</h2>
+        <small>Rata-rata Skor Global</small>
     </div>
     """, unsafe_allow_html=True)
 
-# =============================
-# INSIGHT UTAMA
-# =============================
-st.markdown("### ✨ Insight Utama")
-
-best_q = rata_rata.loc[rata_rata["Skor"].idxmax()]
-worst_q = rata_rata.loc[rata_rata["Skor"].idxmin()]
-dominant = dist_all.sort_values("Jumlah", ascending=False).iloc[0]
-
-i1, i2, i3 = st.columns(3)
-
-with i1:
+with c4:
+    dom = dist_all.sort_values("Jumlah", ascending=False).iloc[0]
     st.markdown(f"""
     <div class="card">
-        <h4>🏆 Pertanyaan Terbaik</h4>
-        <p><b>{best_q['Pertanyaan']}</b></p>
-        <h3>{best_q['Skor']:.2f}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-with i2:
-    st.markdown(f"""
-    <div class="card">
-        <h4>⚠️ Perlu Perhatian</h4>
-        <p><b>{worst_q['Pertanyaan']}</b></p>
-        <h3>{worst_q['Skor']:.2f}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-with i3:
-    st.markdown(f"""
-    <div class="card">
-        <h4>📊 Jawaban Dominan</h4>
-        <p><b>{dominant['Jawaban']}</b></p>
-        <h3>{dominant['Jumlah']}</h3>
+        <h2>{dom['Jawaban']}</h2>
+        <small>Jawaban Dominan</small>
     </div>
     """, unsafe_allow_html=True)
 
 # =============================
-# VISUALISASI (CHART ASLI)
+# INSIGHT NARATIVE
 # =============================
-st.markdown("<div class='section-title'><h3>📊 Visualisasi Umum</h3></div>", unsafe_allow_html=True)
+best = rata_rata.loc[rata_rata["Skor"].idxmax()]
+worst = rata_rata.loc[rata_rata["Skor"].idxmin()]
+
+st.markdown(f"""
+<div class="note">
+<b>Insight Singkat:</b>
+Responden memberikan penilaian paling positif pada <b>{best['Pertanyaan']}</b>
+(dengan skor rata-rata {best['Skor']:.2f}), sementara aspek yang relatif
+memerlukan perhatian lebih adalah <b>{worst['Pertanyaan']}</b>.
+</div>
+""", unsafe_allow_html=True)
+
+# =============================
+# VISUALISASI UTAMA (ASLI)
+# =============================
+st.markdown("<div class='section'><h2>📊 Distribusi Jawaban</h2></div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 
 with c1:
-    fig1 = px.bar(
-        dist_all,
-        x="Jawaban",
-        y="Jumlah",
-        text_auto=True,
-        color="Jawaban",
-        color_discrete_map=warna_jawaban,
-        title="Distribusi Jawaban Keseluruhan"
+    st.plotly_chart(
+        px.bar(
+            dist_all,
+            x="Jawaban",
+            y="Jumlah",
+            color="Jawaban",
+            color_discrete_map=warna_jawaban,
+            text_auto=True,
+            title="Distribusi Jawaban Keseluruhan"
+        ),
+        use_container_width=True
     )
-    st.plotly_chart(fig1, use_container_width=True)
 
 with c2:
-    fig2 = px.pie(
-        dist_all,
-        names="Jawaban",
-        values="Jumlah",
-        hole=0.5,
-        color="Jawaban",
-        color_discrete_map=warna_jawaban,
-        title="Proporsi Jawaban"
+    st.plotly_chart(
+        px.pie(
+            dist_all,
+            names="Jawaban",
+            values="Jumlah",
+            color="Jawaban",
+            color_discrete_map=warna_jawaban,
+            hole=0.5,
+            title="Proporsi Jawaban"
+        ),
+        use_container_width=True
     )
-    st.plotly_chart(fig2, use_container_width=True)
+
+st.markdown("<div class='section'><h2>📈 Analisis Pertanyaan</h2></div>", unsafe_allow_html=True)
 
 c3, c4 = st.columns(2)
 
 with c3:
-    fig3 = px.bar(
-        dist_kategori,
-        x="Kategori",
-        y="Jumlah",
-        text_auto=True,
-        title="Distribusi Positif / Netral / Negatif"
-    )
-    st.plotly_chart(fig3, use_container_width=True)
-
-with c4:
-    fig4 = px.bar(
+    fig = px.bar(
         rata_rata,
         x="Pertanyaan",
         y="Skor",
@@ -279,18 +278,28 @@ with c4:
         text_auto=".2f",
         title="Rata-rata Skor per Pertanyaan"
     )
-    fig4.update_xaxes(tickangle=-30)
-    st.plotly_chart(fig4, use_container_width=True)
+    fig.update_xaxes(tickangle=-30)
+    st.plotly_chart(fig, use_container_width=True)
+
+with c4:
+    fig = px.line(
+        rata_rata,
+        x="Pertanyaan",
+        y="Skor",
+        markers=True,
+        title="Tren Skor Rata-rata"
+    )
+    fig.update_layout(yaxis_range=[0, 5])
+    fig.update_xaxes(tickangle=-30)
+    st.plotly_chart(fig, use_container_width=True)
 
 # =============================
-# DETAIL PER PERTANYAAN
+# DETAIL
 # =============================
-st.markdown("<div class='section-title'><h3>📋 Analisis Per Pertanyaan</h3></div>", unsafe_allow_html=True)
+st.markdown("<div class='section'><h2>📋 Detail Jawaban</h2></div>", unsafe_allow_html=True)
 
-c5, c6 = st.columns(2)
-
-with c5:
-    fig5 = px.bar(
+st.plotly_chart(
+    px.bar(
         dist_per_q,
         x="Pertanyaan",
         y="Jumlah",
@@ -298,35 +307,23 @@ with c5:
         color_discrete_map=warna_jawaban,
         barmode="stack",
         title="Distribusi Jawaban per Pertanyaan"
-    )
-    fig5.update_xaxes(tickangle=-30)
-    st.plotly_chart(fig5, use_container_width=True)
-
-with c6:
-    fig6 = px.line(
-        rata_rata,
-        x="Pertanyaan",
-        y="Skor",
-        markers=True,
-        title="Tren Skor Rata-rata"
-    )
-    fig6.update_layout(yaxis_range=[0, 5])
-    fig6.update_xaxes(tickangle=-30)
-    st.plotly_chart(fig6, use_container_width=True)
+    ),
+    use_container_width=True
+)
 
 # =============================
 # METODOLOGI
 # =============================
-with st.expander("ℹ️ Metodologi Penilaian"):
+with st.expander("ℹ️ Metodologi & Sumber Data"):
     st.write("""
-    - Skala Likert 1–5 digunakan dalam kuesioner
-    - STS = 1, TS = 2, CS = 3, S = 4, SS = 5
-    - Data diolah langsung dari file data_kuesioner.csv
-    - Tidak ada manipulasi atau data sintetis
+    - Skala Likert 1–5 digunakan sebagai dasar penilaian
+    - Data diolah langsung dari file `data_kuesioner.csv`
+    - Tidak terdapat manipulasi atau data sintetis
+    - Visualisasi dibuat untuk mendukung interpretasi hasil survei
     """)
 
 # =============================
 # FOOTER
 # =============================
 st.markdown("---")
-st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • Final Stable & Enhanced UI")
+st.caption("Dashboard Analisis Kuesioner • Dibangun dengan Streamlit & Plotly • Versi Profesional Stabil")

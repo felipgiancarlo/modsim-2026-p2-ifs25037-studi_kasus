@@ -15,13 +15,13 @@ st.title("📊 Dashboard Visualisasi Kuesioner")
 st.caption("Analisis dan visualisasi hasil kuesioner responden")
 
 # =============================
-# LOAD DATA (PALING AMAN DI SERVER)
+# LOAD DATA (SUPER AMAN)
 # =============================
 try:
     df = pd.read_csv(
         "data_kuesioner.csv",
         encoding="latin1",
-        sep=",",
+        sep=None,              # ⬅️ AUTO DETECT ; atau ,
         engine="python",
         on_bad_lines="skip"
     )
@@ -31,6 +31,7 @@ except FileNotFoundError:
 except Exception as e:
     st.error(f"❌ Gagal membaca CSV: {e}")
     st.stop()
+
 
 
 # =============================

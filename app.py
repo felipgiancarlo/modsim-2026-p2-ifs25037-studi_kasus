@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # =============================
-# UI STYLE (HANYA CSS)
+# UI STYLE (CSS ONLY)
 # =============================
 st.markdown("""
 <style>
@@ -38,7 +38,7 @@ st.markdown("""
 }
 
 .card {
-    background: #ffffff;
+    background: white;
     padding: 20px;
     border-radius: 16px;
     box-shadow: 0 4px 14px rgba(0,0,0,0.08);
@@ -53,7 +53,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================
-# HEADER BESAR + SUBTITLE
+# HEADER
 # =============================
 st.markdown("""
 <div class="header-box">
@@ -63,7 +63,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =============================
-# LOAD CSV (ASLI – TIDAK DIUBAH)
+# LOAD CSV (ASLI)
 # =============================
 try:
     df = pd.read_csv(
@@ -122,6 +122,17 @@ kategori_map = {
     "SS": "Positif"
 }
 
+warna_jawaban = {
+    "STS": "#ef4444",
+    "TS": "#f97316",
+    "CS": "#9ca3af",
+    "S": "#3b82f6",
+    "SS": "#22c55e"
+}
+
+# =============================
+# FLATTEN DATA (ASLI)
+# =============================
 rows = []
 for col in jawaban.columns:
     for val in jawaban[col]:
@@ -148,7 +159,7 @@ rata_rata = data.groupby("Pertanyaan")["Skor"].mean().reset_index()
 dist_per_q = data.groupby(["Pertanyaan", "Jawaban"]).size().reset_index(name="Jumlah")
 
 # =============================
-# CARD STATISTIK (TANPA LOGIKA BARU)
+# CARD STATISTIK
 # =============================
 st.markdown("### 📌 Ringkasan Data")
 
@@ -179,10 +190,47 @@ with c3:
     """, unsafe_allow_html=True)
 
 # =============================
-# VISUALISASI (TIDAK DIUBAH)
+# INSIGHT UTAMA
 # =============================
+st.markdown("### ✨ Insight Utama")
 
-st.markdown("<div class='section-title'><h3>📊 Visualisasi Utama</h3></div>", unsafe_allow_html=True)
+best_q = rata_rata.loc[rata_rata["Skor"].idxmax()]
+worst_q = rata_rata.loc[rata_rata["Skor"].idxmin()]
+dominant = dist_all.sort_values("Jumlah", ascending=False).iloc[0]
+
+i1, i2, i3 = st.columns(3)
+
+with i1:
+    st.markdown(f"""
+    <div class="card">
+        <h4>🏆 Pertanyaan Terbaik</h4>
+        <p><b>{best_q['Pertanyaan']}</b></p>
+        <h3>{best_q['Skor']:.2f}</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+with i2:
+    st.markdown(f"""
+    <div class="card">
+        <h4>⚠️ Perlu Perhatian</h4>
+        <p><b>{worst_q['Pertanyaan']}</b></p>
+        <h3>{worst_q['Skor']:.2f}</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+with i3:
+    st.markdown(f"""
+    <div class="card">
+        <h4>📊 Jawaban Dominan</h4>
+        <p><b>{dominant['Jawaban']}</b></p>
+        <h3>{dominant['Jumlah']}</h3>
+    </div>
+    """, unsafe_allow_html=True)
+
+# =============================
+# VISUALISASI (CHART ASLI)
+# =============================
+st.markdown("<div class='section-title'><h3>📊 Visualisasi Umum</h3></div>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 
@@ -192,6 +240,8 @@ with c1:
         x="Jawaban",
         y="Jumlah",
         text_auto=True,
+        color="Jawaban",
+        color_discrete_map=warna_jawaban,
         title="Distribusi Jawaban Keseluruhan"
     )
     st.plotly_chart(fig1, use_container_width=True)
@@ -202,6 +252,8 @@ with c2:
         names="Jawaban",
         values="Jumlah",
         hole=0.5,
+        color="Jawaban",
+        color_discrete_map=warna_jawaban,
         title="Proporsi Jawaban"
     )
     st.plotly_chart(fig2, use_container_width=True)
@@ -230,7 +282,10 @@ with c4:
     fig4.update_xaxes(tickangle=-30)
     st.plotly_chart(fig4, use_container_width=True)
 
-st.markdown("<div class='section-title'><h3>📋 Detail per Pertanyaan</h3></div>", unsafe_allow_html=True)
+# =============================
+# DETAIL PER PERTANYAAN
+# =============================
+st.markdown("<div class='section-title'><h3>📋 Analisis Per Pertanyaan</h3></div>", unsafe_allow_html=True)
 
 c5, c6 = st.columns(2)
 
@@ -240,6 +295,7 @@ with c5:
         x="Pertanyaan",
         y="Jumlah",
         color="Jawaban",
+        color_discrete_map=warna_jawaban,
         barmode="stack",
         title="Distribusi Jawaban per Pertanyaan"
     )
@@ -259,7 +315,18 @@ with c6:
     st.plotly_chart(fig6, use_container_width=True)
 
 # =============================
+# METODOLOGI
+# =============================
+with st.expander("ℹ️ Metodologi Penilaian"):
+    st.write("""
+    - Skala Likert 1–5 digunakan dalam kuesioner
+    - STS = 1, TS = 2, CS = 3, S = 4, SS = 5
+    - Data diolah langsung dari file data_kuesioner.csv
+    - Tidak ada manipulasi atau data sintetis
+    """)
+
+# =============================
 # FOOTER
 # =============================
 st.markdown("---")
-st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • UI Enhanced (Stable)")
+st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • Final Stable & Enhanced UI")

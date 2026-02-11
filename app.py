@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from io import BytesIO
 
 # =============================
-# PAGE CONFIG
+# CONFIG
 # =============================
 st.set_page_config(
     page_title="Dashboard Visualisasi Kuesioner",
@@ -13,40 +12,34 @@ st.set_page_config(
 )
 
 # =============================
-# DARK MODE TOGGLE
+# CUSTOM CSS
 # =============================
-dark_mode = st.sidebar.toggle("🌙 Dark Mode")
-
-if dark_mode:
-    bg = "#0f172a"
-    card = "#1e293b"
-    text = "#f8fafc"
-else:
-    bg = "#f6f8fb"
-    card = "#ffffff"
-    text = "#020617"
-
-st.markdown(f"""
+st.markdown("""
 <style>
-body {{
-    background-color: {bg};
-    color: {text};
-}}
-.card {{
-    background-color: {card};
+body {
+    background-color: #f6f8fb;
+}
+ celebrated {
+    font-size: 18px;
+}
+.card {
+    background-color: white;
     padding: 20px;
     border-radius: 16px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
     text-align: center;
-}}
-.metric-title {{
+}
+.metric-title {
     font-size: 16px;
-    color: #94a3b8;
-}}
-.metric-value {{
+    color: #6b7280;
+}
+.metric-value {
     font-size: 32px;
     font-weight: bold;
-}}
+}
+.section {
+    margin-top: 40px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -54,7 +47,9 @@ body {{
 # HEADER
 # =============================
 st.markdown("## 📊 Dashboard Visualisasi Kuesioner")
-st.caption("Analisis dan visualisasi hasil kuesioner responden")
+st.markdown("Analisis dan visualisasi hasil kuesioner responden secara interaktif")
+
+st.markdown("---")
 
 # =============================
 # LOAD DATA
@@ -68,52 +63,33 @@ try:
         on_bad_lines="skip"
     )
 except Exception as e:
-    st.error(f"❌ Gagal membaca data: {e}")
+    st.error(f"❌ Gagal membaca file: {e}")
     st.stop()
 
 if df.shape[1] < 2:
-    st.error("❌ Minimal harus ada kolom ID + pertanyaan")
+    st.error("❌ Minimal harus ada 2 kolom (ID + pertanyaan)")
     st.stop()
-
-# =============================
-# FILTER RESPONDEN
-# =============================
-st.sidebar.header("🔍 Filter Responden")
-
-responden = st.sidebar.multiselect(
-    "Pilih Responden (ID)",
-    df.iloc[:, 0].unique(),
-    default=df.iloc[:, 0].unique()
-)
-
-df = df[df.iloc[:, 0].isin(responden)]
 
 # =============================
 # PREPROCESS
 # =============================
 pertanyaan = df.columns[1:]
-mapping = {"STS": 1, "TS": 2, "CS": 3, "S": 4, "SS": 5}
+
+mapping = {
+    "STS": 1,
+    "TS": 2,
+    "CS": 3,
+    "S": 4,
+    "SS": 5
+}
+
 df_numeric = df[pertanyaan].replace(mapping)
-
-# =============================
-# SCORE & KATEGORI
-# =============================
-df["Total Skor"] = df_numeric.sum(axis=1)
-max_score = len(pertanyaan) * 5
-
-def kategori(skor):
-    if skor >= 0.8 * max_score:
-        return "Baik"
-    elif skor >= 0.6 * max_score:
-        return "Cukup"
-    else:
-        return "Kurang"
-
-df["Kategori"] = df["Total Skor"].apply(kategori)
 
 # =============================
 # METRICS
 # =============================
+st.markdown("### 📌 Ringkasan Data")
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -135,60 +111,62 @@ with col2:
 with col3:
     st.markdown(f"""
     <div class="card">
-        <div class="metric-title">Skor Maksimum</div>
-        <div class="metric-value">{max_score}</div>
+        <div class="metric-title">Skala Penilaian</div>
+        <div class="metric-value">1 – 5</div>
     </div>
     """, unsafe_allow_html=True)
 
 # =============================
-# RANKING PERTANYAAN
+# AVERAGE SCORE
 # =============================
-st.markdown("### 🏆 Ranking Pertanyaan Terbaik")
+st.markdown("### 📈 Rata-rata Skor Tiap Pertanyaan")
 
-ranking = df_numeric.mean().sort_values(ascending=False).reset_index()
-ranking.columns = ["Pertanyaan", "Rata-rata Skor"]
+avg = df_numeric.mean().reset_index()
+avg.columns = ["Pertanyaan", "Rata-rata"]
 
-fig_rank = px.bar(
-    ranking,
-    x="Rata-rata Skor",
-    y="Pertanyaan",
-    orientation="h",
-    color="Rata-rata Skor",
-    color_continuous_scale="Blues",
-    text_auto=".2f"
+fig_avg = px.bar(
+    avg,
+    x="Pertanyaan",
+    y="Rata-rata",
+    color="Rata-rata",
+    text_auto=".2f",
+    color_continuous_scale="Blues"
 )
 
-fig_rank.update_layout(height=450, yaxis=dict(autorange="reversed"))
-st.plotly_chart(fig_rank, use_container_width=True)
+fig_avg.update_layout(
+    height=400,
+    yaxis=dict(range=[1, 5]),
+    plot_bgcolor="rgba(0,0,0,0)"
+)
+
+st.plotly_chart(fig_avg, use_container_width=True)
 
 # =============================
-# DETAIL PERTANYAAN
+# DETAIL PER PERTANYAAN
 # =============================
-st.markdown("### 📋 Distribusi Jawaban")
+st.markdown("### 📋 Detail Jawaban per Pertanyaan")
 
 selected_q = st.selectbox("Pilih Pertanyaan", pertanyaan)
+
 dist = df[selected_q].value_counts().reset_index()
 dist.columns = ["Jawaban", "Jumlah"]
 
-fig_pie = px.pie(dist, names="Jawaban", values="Jumlah", hole=0.4)
-st.plotly_chart(fig_pie, use_container_width=True)
-
-# =============================
-# DOWNLOAD EXCEL
-# =============================
-st.markdown("### 📥 Download Data")
-
-output = BytesIO()
-with pd.ExcelWriter(output, engine="openpyxl") as writer:
-    df.to_excel(writer, index=False, sheet_name="Hasil Kuesioner")
-    ranking.to_excel(writer, index=False, sheet_name="Ranking Pertanyaan")
-
-st.download_button(
-    label="⬇ Download Excel",
-    data=output.getvalue(),
-    file_name="hasil_kuesioner.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+fig_pie = px.pie(
+    dist,
+    names="Jawaban",
+    values="Jumlah",
+    hole=0.45
 )
+
+fig_pie.update_layout(height=350)
+
+col1, col2 = st.columns([1, 2])
+
+with col1:
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+with col2:
+    st.dataframe(dist, use_container_width=True)
 
 # =============================
 # FOOTER

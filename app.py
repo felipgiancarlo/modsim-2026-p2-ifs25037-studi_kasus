@@ -15,22 +15,26 @@ st.title("📊 Dashboard Visualisasi Kuesioner")
 st.caption("Analisis dan visualisasi hasil kuesioner responden")
 
 # =============================
-# LOAD DATA (AMAN ENCODING)
+# LOAD DATA (PALING STABIL)
 # =============================
 try:
-    df = pd.read_csv("data_kuesioner.csv", encoding="utf-8")
-except UnicodeDecodeError:
-    df = pd.read_csv("data_kuesioner.csv", encoding="latin1")
+    df = pd.read_excel("data_kuesioner.xlsx")
+except FileNotFoundError:
+    st.error("❌ File **data_kuesioner.xlsx** tidak ditemukan. Pastikan satu folder dengan app.py")
+    st.stop()
+except Exception as e:
+    st.error(f"❌ Gagal membaca file Excel: {e}")
+    st.stop()
 
 # =============================
 # VALIDASI DATA
 # =============================
 if df.shape[1] < 2:
-    st.error("❌ File CSV harus memiliki minimal 2 kolom (ID + pertanyaan)")
+    st.error("❌ Data tidak valid. Minimal harus ada 2 kolom (ID + pertanyaan).")
     st.stop()
 
 # =============================
-# AMBIL JAWABAN
+# PREPROCESSING
 # =============================
 jawaban = df.iloc[:, 1:].astype(str)
 jawaban = jawaban.replace(["nan", "None", "", " "], pd.NA)
@@ -55,13 +59,12 @@ kategori_map = {
 }
 
 # =============================
-# FLATTEN DATA (AMAN)
+# FLATTEN DATA
 # =============================
 rows = []
 
 for col in jawaban.columns:
-    for val in jawaban[col].dropna():
-        val = val.strip().upper()
+    for val in jawaban[col]:
         if val in skor_map:
             rows.append({
                 "Pertanyaan": col,
@@ -73,33 +76,25 @@ for col in jawaban.columns:
 data = pd.DataFrame(rows)
 
 if data.empty:
-    st.error("❌ Tidak ada data jawaban valid (STS–SS) di file CSV")
+    st.error("❌ Tidak ada data jawaban valid (STS/TS/CS/S/SS).")
     st.stop()
 
 # =============================
 # DATA OLAHAN
 # =============================
-dist_all = (
-    data.groupby("Jawaban", as_index=False)
-    .size()
-    .rename(columns={"size": "Jumlah"})
-)
-
-dist_kategori = (
-    data.groupby("Kategori", as_index=False)
-    .size()
-    .rename(columns={"size": "Jumlah"})
-)
+dist_all = data.groupby("Jawaban").size().reset_index(name="Jumlah")
+dist_kategori = data.groupby("Kategori").size().reset_index(name="Jumlah")
 
 rata_rata = (
-    data.groupby("Pertanyaan", as_index=False)["Skor"]
+    data.groupby("Pertanyaan")["Skor"]
     .mean()
+    .reset_index()
 )
 
 dist_per_q = (
-    data.groupby(["Pertanyaan", "Jawaban"], as_index=False)
+    data.groupby(["Pertanyaan", "Jawaban"])
     .size()
-    .rename(columns={"size": "Jumlah"})
+    .reset_index(name="Jumlah")
 )
 
 # =============================
@@ -185,4 +180,4 @@ with c6:
 # FOOTER
 # =============================
 st.markdown("---")
-st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • Final Version")
+st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • Final Stable Version")

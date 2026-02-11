@@ -15,16 +15,23 @@ st.title("📊 Dashboard Visualisasi Kuesioner")
 st.caption("Analisis dan visualisasi hasil kuesioner responden")
 
 # =============================
-# LOAD DATA (PALING STABIL)
+# LOAD DATA (PALING AMAN DI SERVER)
 # =============================
 try:
-    df = pd.read_excel("data_kuesioner.xlsx")
+    df = pd.read_csv(
+        "data_kuesioner.csv",
+        encoding="latin1",
+        sep=",",
+        engine="python",
+        on_bad_lines="skip"
+    )
 except FileNotFoundError:
-    st.error("❌ File **data_kuesioner.xlsx** tidak ditemukan. Pastikan satu folder dengan app.py")
+    st.error("❌ File data_kuesioner.csv tidak ditemukan.")
     st.stop()
 except Exception as e:
-    st.error(f"❌ Gagal membaca file Excel: {e}")
+    st.error(f"❌ Gagal membaca CSV: {e}")
     st.stop()
+
 
 # =============================
 # VALIDASI DATA

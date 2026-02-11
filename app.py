@@ -6,76 +6,86 @@ import plotly.express as px
 # PAGE CONFIG
 # =============================
 st.set_page_config(
-    page_title="Dashboard Visualisasi Kuesioner",
+    page_title="Dashboard Kuesioner",
     page_icon="📊",
     layout="wide"
 )
 
-# =============================
-# UI STYLE (AMAN – NO LOGIC)
-# =============================
-st.markdown("""
-<style>
-.block-container {
-    padding-top: 2rem;
-}
-.header-box {
-    background: linear-gradient(135deg, #2563eb, #4f46e5);
-    padding: 28px;
-    border-radius: 20px;
-    color: white;
-    margin-bottom: 30px;
-}
-.header-box h1 {
-    margin-bottom: 5px;
-}
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-    text-align: center;
-}
-</style>
-""", unsafe_allow_html=True)
+st.title("📊 Dashboard Visualisasi Kuesioner")
+st.caption("Analisis dan visualisasi hasil kuesioner responden")
 
 # =============================
-# HEADER
-# =============================
-st.markdown("""
-<div class="header-box">
-    <h1>📊 Dashboard Visualisasi Kuesioner</h1>
-    <p>Analisis dan visualisasi hasil kuesioner responden</p>
-</div>
-""", unsafe_allow_html=True)
-
-# =============================
-# LOAD DATA (AMAN)
+# LOAD CSV (AMAN)
 # =============================
 try:
-    df = pd.read_csv("data_kuesioner.csv", encoding="latin1")
+    df = pd.read_csv(
+        "data_kuesioner.csv",
+        encoding="latin1",
+        sep=None,
+        engine="python"
+    )
 except Exception as e:
-    st.error(f"Gagal membaca CSV: {e}")
+    st.error(f"❌ Gagal membaca CSV: {e}")
     st.stop()
 
+# =============================
+# VALIDASI STRUKTUR
+# =============================
 if df.shape[1] < 2:
-    st.error("Data tidak valid. Minimal harus ada 2 kolom (ID + pertanyaan).")
+    st.error("❌ Data tidak valid. Minimal harus ada 2 kolom (ID + pertanyaan).")
     st.stop()
 
-# =============================
-# PREPROCESS
-# =============================
+# Ambil kolom jawaban (selain ID)
 jawaban = df.iloc[:, 1:].astype(str)
-jawaban = jawaban.replace(["nan", "None", ""], pd.NA)
 
-skor_map = {"STS": 1, "TS": 2, "CS": 3, "S": 4, "SS": 5}
-kategori_map = {
-    "STS": "Negatif", "TS": "Negatif",
-    "CS": "Netral",
-    "S": "Positif", "SS": "Positif"
+# =============================
+# NORMALISASI JAWABAN
+# =============================
+normalisasi = {
+    "sangat tidak setuju": "STS",
+    "tidak setuju": "TS",
+    "cukup setuju": "CS",
+    "setuju": "S",
+    "sangat setuju": "SS",
+    "sts": "STS",
+    "ts": "TS",
+    "cs": "CS",
+    "s": "S",
+    "ss": "SS"
 }
 
+def normalize(val):
+    if pd.isna(val):
+        return None
+    val = str(val).strip().lower()
+    return normalisasi.get(val, None)
+
+jawaban = jawaban.applymap(normalize)
+
+# =============================
+# VALIDASI ISI DATA
+# =============================
+if jawaban.notna().sum().sum() == 0:
+    st.error("❌ Tidak ada data jawaban valid (STS / TS / CS / S / SS).")
+    st.stop()
+
+# =============================
+# MAPPING
+# =============================
+skor_map = {"STS": 1, "TS": 2, "CS": 3, "S": 4, "SS": 5}
+kategori_map = {
+    "STS": "Negatif",
+    "TS": "Negatif",
+    "CS": "Netral",
+    "S": "Positif",
+    "SS": "Positif"
+}
+
+# =============================
+# FLATTEN DATA
+# =============================
 rows = []
+
 for col in jawaban.columns:
     for val in jawaban[col]:
         if val in skor_map:
@@ -89,39 +99,8 @@ for col in jawaban.columns:
 data = pd.DataFrame(rows)
 
 if data.empty:
-    st.error("Tidak ada data jawaban valid (STS/TS/CS/S/SS).")
+    st.error("❌ Data kosong setelah diproses.")
     st.stop()
-
-# =============================
-# SUMMARY CARD
-# =============================
-c1, c2, c3 = st.columns(3)
-
-with c1:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Total Responden</h4>
-        <h2>{df.shape[0]}</h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c2:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Jumlah Pertanyaan</h4>
-        <h2>{jawaban.shape[1]}</h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-with c3:
-    st.markdown(f"""
-    <div class="card">
-        <h4>Total Jawaban Valid</h4>
-        <h2>{len(data)}</h2>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
 
 # =============================
 # DATA OLAHAN
@@ -132,7 +111,7 @@ rata_rata = data.groupby("Pertanyaan")["Skor"].mean().reset_index()
 dist_per_q = data.groupby(["Pertanyaan", "Jawaban"]).size().reset_index(name="Jumlah")
 
 # =============================
-# VISUALISASI
+# DASHBOARD
 # =============================
 
 # ROW 1
@@ -153,7 +132,7 @@ with c2:
         dist_all,
         names="Jawaban",
         values="Jumlah",
-        hole=0.45,
+        hole=0.5,
         title="Proporsi Jawaban"
     )
     st.plotly_chart(fig2, use_container_width=True)
@@ -206,12 +185,12 @@ with c6:
         markers=True,
         title="Tren Skor Rata-rata"
     )
-    fig6.update_layout(yaxis_range=[0, 5])
     fig6.update_xaxes(tickangle=-30)
+    fig6.update_layout(yaxis_range=[0, 5])
     st.plotly_chart(fig6, use_container_width=True)
 
 # =============================
 # FOOTER
 # =============================
 st.markdown("---")
-st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • Stable UI Version")
+st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • Final Stable Version")

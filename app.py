@@ -15,49 +15,64 @@ st.title("📊 Dashboard Visualisasi Kuesioner")
 st.caption("Analisis dan visualisasi hasil kuesioner responden")
 
 # =============================
-# LOAD DATA (SUPER AMAN)
+# LOAD CSV (AMAN)
 # =============================
 try:
     df = pd.read_csv(
         "data_kuesioner.csv",
         encoding="latin1",
-        sep=None,              # ⬅️ AUTO DETECT ; atau ,
-        engine="python",
-        on_bad_lines="skip"
+        sep=None,
+        engine="python"
     )
-except FileNotFoundError:
-    st.error("❌ File data_kuesioner.csv tidak ditemukan.")
-    st.stop()
 except Exception as e:
     st.error(f"❌ Gagal membaca CSV: {e}")
     st.stop()
 
-
-
 # =============================
-# VALIDASI DATA
+# VALIDASI STRUKTUR
 # =============================
 if df.shape[1] < 2:
     st.error("❌ Data tidak valid. Minimal harus ada 2 kolom (ID + pertanyaan).")
     st.stop()
 
-# =============================
-# PREPROCESSING
-# =============================
+# Ambil kolom jawaban (selain ID)
 jawaban = df.iloc[:, 1:].astype(str)
-jawaban = jawaban.replace(["nan", "None", "", " "], pd.NA)
+
+# =============================
+# NORMALISASI JAWABAN
+# =============================
+normalisasi = {
+    "sangat tidak setuju": "STS",
+    "tidak setuju": "TS",
+    "cukup setuju": "CS",
+    "setuju": "S",
+    "sangat setuju": "SS",
+    "sts": "STS",
+    "ts": "TS",
+    "cs": "CS",
+    "s": "S",
+    "ss": "SS"
+}
+
+def normalize(val):
+    if pd.isna(val):
+        return None
+    val = str(val).strip().lower()
+    return normalisasi.get(val, None)
+
+jawaban = jawaban.applymap(normalize)
+
+# =============================
+# VALIDASI ISI DATA
+# =============================
+if jawaban.notna().sum().sum() == 0:
+    st.error("❌ Tidak ada data jawaban valid (STS / TS / CS / S / SS).")
+    st.stop()
 
 # =============================
 # MAPPING
 # =============================
-skor_map = {
-    "STS": 1,
-    "TS": 2,
-    "CS": 3,
-    "S": 4,
-    "SS": 5
-}
-
+skor_map = {"STS": 1, "TS": 2, "CS": 3, "S": 4, "SS": 5}
 kategori_map = {
     "STS": "Negatif",
     "TS": "Negatif",
@@ -84,7 +99,7 @@ for col in jawaban.columns:
 data = pd.DataFrame(rows)
 
 if data.empty:
-    st.error("❌ Tidak ada data jawaban valid (STS/TS/CS/S/SS).")
+    st.error("❌ Data kosong setelah diproses.")
     st.stop()
 
 # =============================
@@ -92,24 +107,14 @@ if data.empty:
 # =============================
 dist_all = data.groupby("Jawaban").size().reset_index(name="Jumlah")
 dist_kategori = data.groupby("Kategori").size().reset_index(name="Jumlah")
-
-rata_rata = (
-    data.groupby("Pertanyaan")["Skor"]
-    .mean()
-    .reset_index()
-)
-
-dist_per_q = (
-    data.groupby(["Pertanyaan", "Jawaban"])
-    .size()
-    .reset_index(name="Jumlah")
-)
+rata_rata = data.groupby("Pertanyaan")["Skor"].mean().reset_index()
+dist_per_q = data.groupby(["Pertanyaan", "Jawaban"]).size().reset_index(name="Jumlah")
 
 # =============================
 # DASHBOARD
 # =============================
 
-# ===== ROW 1 =====
+# ROW 1
 c1, c2 = st.columns(2)
 
 with c1:
@@ -118,7 +123,7 @@ with c1:
         x="Jawaban",
         y="Jumlah",
         text_auto=True,
-        title="Chart 1 — Distribusi Jawaban Keseluruhan"
+        title="Distribusi Jawaban Keseluruhan"
     )
     st.plotly_chart(fig1, use_container_width=True)
 
@@ -128,11 +133,11 @@ with c2:
         names="Jawaban",
         values="Jumlah",
         hole=0.5,
-        title="Chart 2 — Proporsi Jawaban"
+        title="Proporsi Jawaban"
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-# ===== ROW 2 =====
+# ROW 2
 c3, c4 = st.columns(2)
 
 with c3:
@@ -141,7 +146,7 @@ with c3:
         x="Kategori",
         y="Jumlah",
         text_auto=True,
-        title="Chart 3 — Distribusi Positif, Netral, Negatif"
+        title="Distribusi Positif / Netral / Negatif"
     )
     st.plotly_chart(fig3, use_container_width=True)
 
@@ -152,12 +157,12 @@ with c4:
         y="Skor",
         range_y=[0, 5],
         text_auto=".2f",
-        title="Chart 4 — Rata-rata Skor per Pertanyaan"
+        title="Rata-rata Skor per Pertanyaan"
     )
     fig4.update_xaxes(tickangle=-30)
     st.plotly_chart(fig4, use_container_width=True)
 
-# ===== ROW 3 =====
+# ROW 3
 c5, c6 = st.columns(2)
 
 with c5:
@@ -167,7 +172,7 @@ with c5:
         y="Jumlah",
         color="Jawaban",
         barmode="stack",
-        title="Chart 5 — Distribusi Jawaban per Pertanyaan"
+        title="Distribusi Jawaban per Pertanyaan"
     )
     fig5.update_xaxes(tickangle=-30)
     st.plotly_chart(fig5, use_container_width=True)
@@ -178,7 +183,7 @@ with c6:
         x="Pertanyaan",
         y="Skor",
         markers=True,
-        title="Chart 6 — Tren Skor Rata-rata"
+        title="Tren Skor Rata-rata"
     )
     fig6.update_xaxes(tickangle=-30)
     fig6.update_layout(yaxis_range=[0, 5])

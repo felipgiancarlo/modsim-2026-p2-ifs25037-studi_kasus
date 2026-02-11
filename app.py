@@ -11,11 +11,59 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📊 Dashboard Visualisasi Kuesioner")
-st.caption("Analisis dan visualisasi hasil kuesioner responden")
+# =============================
+# UI STYLE (HANYA CSS)
+# =============================
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 2rem;
+}
+
+.header-box {
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    padding: 32px;
+    border-radius: 20px;
+    color: white;
+    margin-bottom: 32px;
+}
+
+.header-box h1 {
+    margin-bottom: 8px;
+}
+
+.header-box p {
+    opacity: 0.9;
+    font-size: 16px;
+}
+
+.card {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    text-align: center;
+}
+
+.section-title {
+    margin-top: 40px;
+    margin-bottom: 20px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # =============================
-# LOAD CSV (AMAN)
+# HEADER BESAR + SUBTITLE
+# =============================
+st.markdown("""
+<div class="header-box">
+    <h1>📊 Dashboard Visualisasi Kuesioner</h1>
+    <p>Analisis dan visualisasi hasil kuesioner responden</p>
+</div>
+""", unsafe_allow_html=True)
+
+# =============================
+# LOAD CSV (ASLI – TIDAK DIUBAH)
 # =============================
 try:
     df = pd.read_csv(
@@ -28,18 +76,14 @@ except Exception as e:
     st.error(f"❌ Gagal membaca CSV: {e}")
     st.stop()
 
-# =============================
-# VALIDASI STRUKTUR
-# =============================
 if df.shape[1] < 2:
     st.error("❌ Data tidak valid. Minimal harus ada 2 kolom (ID + pertanyaan).")
     st.stop()
 
-# Ambil kolom jawaban (selain ID)
 jawaban = df.iloc[:, 1:].astype(str)
 
 # =============================
-# NORMALISASI JAWABAN
+# NORMALISASI (ASLI)
 # =============================
 normalisasi = {
     "sangat tidak setuju": "STS",
@@ -62,15 +106,12 @@ def normalize(val):
 
 jawaban = jawaban.applymap(normalize)
 
-# =============================
-# VALIDASI ISI DATA
-# =============================
 if jawaban.notna().sum().sum() == 0:
     st.error("❌ Tidak ada data jawaban valid (STS / TS / CS / S / SS).")
     st.stop()
 
 # =============================
-# MAPPING
+# MAPPING (ASLI)
 # =============================
 skor_map = {"STS": 1, "TS": 2, "CS": 3, "S": 4, "SS": 5}
 kategori_map = {
@@ -81,11 +122,7 @@ kategori_map = {
     "SS": "Positif"
 }
 
-# =============================
-# FLATTEN DATA
-# =============================
 rows = []
-
 for col in jawaban.columns:
     for val in jawaban[col]:
         if val in skor_map:
@@ -103,7 +140,7 @@ if data.empty:
     st.stop()
 
 # =============================
-# DATA OLAHAN
+# DATA OLAHAN (ASLI)
 # =============================
 dist_all = data.groupby("Jawaban").size().reset_index(name="Jumlah")
 dist_kategori = data.groupby("Kategori").size().reset_index(name="Jumlah")
@@ -111,10 +148,42 @@ rata_rata = data.groupby("Pertanyaan")["Skor"].mean().reset_index()
 dist_per_q = data.groupby(["Pertanyaan", "Jawaban"]).size().reset_index(name="Jumlah")
 
 # =============================
-# DASHBOARD
+# CARD STATISTIK (TANPA LOGIKA BARU)
+# =============================
+st.markdown("### 📌 Ringkasan Data")
+
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Total Responden</h4>
+        <h2>{df.shape[0]}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c2:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Jumlah Pertanyaan</h4>
+        <h2>{jawaban.shape[1]}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    st.markdown(f"""
+    <div class="card">
+        <h4>Rata-rata Skor Global</h4>
+        <h2>{data["Skor"].mean():.2f}</h2>
+    </div>
+    """, unsafe_allow_html=True)
+
+# =============================
+# VISUALISASI (TIDAK DIUBAH)
 # =============================
 
-# ROW 1
+st.markdown("<div class='section-title'><h3>📊 Visualisasi Utama</h3></div>", unsafe_allow_html=True)
+
 c1, c2 = st.columns(2)
 
 with c1:
@@ -137,7 +206,6 @@ with c2:
     )
     st.plotly_chart(fig2, use_container_width=True)
 
-# ROW 2
 c3, c4 = st.columns(2)
 
 with c3:
@@ -162,7 +230,8 @@ with c4:
     fig4.update_xaxes(tickangle=-30)
     st.plotly_chart(fig4, use_container_width=True)
 
-# ROW 3
+st.markdown("<div class='section-title'><h3>📋 Detail per Pertanyaan</h3></div>", unsafe_allow_html=True)
+
 c5, c6 = st.columns(2)
 
 with c5:
@@ -185,12 +254,12 @@ with c6:
         markers=True,
         title="Tren Skor Rata-rata"
     )
-    fig6.update_xaxes(tickangle=-30)
     fig6.update_layout(yaxis_range=[0, 5])
+    fig6.update_xaxes(tickangle=-30)
     st.plotly_chart(fig6, use_container_width=True)
 
 # =============================
 # FOOTER
 # =============================
 st.markdown("---")
-st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • Final Stable Version")
+st.caption("📊 Dashboard Kuesioner • Streamlit & Plotly • UI Enhanced (Stable)")
